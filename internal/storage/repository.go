@@ -165,17 +165,17 @@ func (repository *Repository) InsertToDB(order *models.Order) error {
 
 }
 
-func (repository *Repository) FindOrderById(order_uid string) (order models.Order, exist bool, err error) {
-	cacheOrder, exist, err := repository.cache.Get(order_uid)
+func (repository *Repository) FindOrderById(orderUid string) (order models.Order, exist bool, err error) {
+	cacheOrder, exist, err := repository.cache.Get(orderUid)
 	if exist {
 		log.Printf("Have found in the cache")
 		return *cacheOrder, true, nil
 	}
 	log.Printf("Have found in the DB")
-	return repository.selectFromDB(order_uid)
+	return repository.selectFromDB(orderUid)
 }
 
-func (repository *Repository) selectFromDB(order_uid string) (order models.Order, exist bool, err error) {
+func (repository *Repository) selectFromDB(orderUid string) (order models.Order, exist bool, err error) {
 	exist = true
 
 	conn, err := repository.pool.Acquire(context.Background())
@@ -190,7 +190,7 @@ func (repository *Repository) selectFromDB(order_uid string) (order models.Order
 	}
 	defer tx.Rollback(context.Background())
 
-	err = tx.QueryRow(context.Background(), "SELECT * FROM orders WHERE order_uid = $1", order_uid).Scan(
+	err = tx.QueryRow(context.Background(), "SELECT * FROM orders WHERE order_uid = $1", orderUid).Scan(
 		&order.OrderUID, &order.TrackNumber, &order.Entry,
 		&order.Locale, &order.InternalSignature, &order.CustomerID,
 		&order.DeliveryService, &order.Shardkey, &order.SmID,
@@ -200,14 +200,14 @@ func (repository *Repository) selectFromDB(order_uid string) (order models.Order
 		if err == pgx.ErrNoRows {
 			exist = false
 			err = nil
-			log.Printf("Order does not exist = %v\n", order_uid)
+			log.Printf("Order does not exist = %v\n", orderUid)
 			return
 		}
 		log.Printf("Error of query: %v", err)
 		return
 	}
 
-	err = tx.QueryRow(context.Background(), "SELECT * FROM deliveries WHERE order_uid = $1", order_uid).Scan(
+	err = tx.QueryRow(context.Background(), "SELECT * FROM deliveries WHERE order_uid = $1", orderUid).Scan(
 		&order.Delivery.OrderUID, &order.Delivery.Name, &order.Delivery.Phone,
 		&order.Delivery.Zip, &order.Delivery.City, &order.Delivery.Address,
 		&order.Delivery.Region, &order.Delivery.Email,
@@ -217,7 +217,7 @@ func (repository *Repository) selectFromDB(order_uid string) (order models.Order
 		return
 	}
 
-	err = tx.QueryRow(context.Background(), "SELECT * FROM payments WHERE order_uid = $1", order_uid).Scan(
+	err = tx.QueryRow(context.Background(), "SELECT * FROM payments WHERE order_uid = $1", orderUid).Scan(
 		&order.Payment.OrderUID, &order.Payment.Transaction, &order.Payment.RequestID,
 		&order.Payment.Currency, &order.Payment.Provider, &order.Payment.Amount,
 		&order.Payment.PaymentDt, &order.Payment.Bank, &order.Payment.DeliveryCost,
@@ -228,7 +228,7 @@ func (repository *Repository) selectFromDB(order_uid string) (order models.Order
 		return
 	}
 
-	rows, err := tx.Query(context.Background(), "SELECT * FROM items WHERE order_uid = $1", order_uid)
+	rows, err := tx.Query(context.Background(), "SELECT * FROM items WHERE order_uid = $1", orderUid)
 	if err != nil {
 		log.Printf("Query of items is failed: %v", err)
 		return

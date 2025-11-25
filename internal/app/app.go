@@ -70,20 +70,20 @@ func (a *App) HomeHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) GetOrderById(w http.ResponseWriter, r *http.Request) {
-	order_uid := mux.Vars(r)["order_uid"]
-	log.Printf("Searching : %v", order_uid)
+	orderUid := mux.Vars(r)["order_uid"]
+	log.Printf("Searching : %v", orderUid)
 
-	order, exist, err := a.repository.FindOrderById(order_uid)
+	order, exist, err := a.repository.FindOrderById(orderUid)
 
 	if !exist {
-		fmt.Fprintf(w, "Order %v does not exist\n", order_uid)
+		fmt.Fprintf(w, "Order %v does not exist\n", orderUid)
 		return
 	} else if err != nil {
 		log.Printf("Finding order by id is failed: %v", err)
 		return
 	}
 
-	kafka.DoRequest(a.Producer, a.Consumer, order_uid, "get_order_by_id", "get_order_by_id_response")
+	kafka.DoRequest(a.Producer, a.Consumer, orderUid, "get_order_by_id", "get_order_by_id_response")
 
 	json_data, err := json.MarshalIndent(order, "", "\t")
 	if err != nil {

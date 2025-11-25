@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"syscall"
 
 	"test-task/internal/app"
+	"test-task/internal/config"
 	"test-task/internal/kafka"
 
 	"github.com/gorilla/mux"
@@ -22,8 +24,18 @@ func main() {
 	sigchan := make(chan os.Signal, 1)
 	signal.Notify(sigchan, syscall.SIGINT, syscall.SIGTERM)
 
-	connStr := "postgres://postgres:qwerty@localhost:5433/WB_ordersDB"
-	newApp, err := app.NewApp(connStr)
+	config, err := config.LoadConfig()
+	if err != nil {
+		log.Fatalf("Failed to get config: %v", err)
+	}
+
+	/* 	connStr := "postgres://postgres:qwerty@localhost:5433/WB_ordersDB"
+	   	newApp, err := app.NewApp(connStr) */
+	newApp, err := app.NewApp(fmt.Sprintf("postgres://%s:%s@localhost:5433/%s",
+		config.DBUser,
+		config.DBPassword,
+		config.DBName,
+	))
 	if err != nil {
 		log.Fatalf("Failed to initialize")
 	}

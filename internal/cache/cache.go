@@ -39,8 +39,8 @@ func (cache *Cache) Add(order *models.Order) {
 	}
 }
 
-func (cache *Cache) Get(order_uid string) (order *models.Order, exist bool, err error) {
-	element, exist := cache.cacheMap[order_uid]
+func (cache *Cache) Get(orderUid string) (order *models.Order, exist bool, err error) {
+	element, exist := cache.cacheMap[orderUid]
 	if !exist {
 		return nil, false, err
 	}
