@@ -1,7 +1,10 @@
 package models
 
 import (
+	"math/rand"
 	"time"
+
+	"github.com/brianvoe/gofakeit/v7"
 )
 
 type Order struct {
@@ -60,4 +63,49 @@ type Item struct {
 	NmID        int64   `json:"nm_id" fake:"{number:10000,99999}"`
 	Brand       string  `json:"brand" fake:"{company}"`
 	Status      int     `json:"status" fake:"{number:200,202}"`
+}
+
+func createRandomOrder(rng *rand.Rand) Order {
+	var order Order
+	var delivery Delivery
+	var payment Payment
+
+	if err := gofakeit.Struct(&order); err != nil {
+		return order
+	}
+	if err := gofakeit.Struct(&delivery); err != nil {
+		return order
+	}
+	if err := gofakeit.Struct(&payment); err != nil {
+		return order
+	}
+
+	itemCount := rng.Intn(10) + 1
+	items := make([]Item, 0, itemCount)
+	var goodsTotal float64
+
+	for i := 0; i < itemCount; i++ {
+		var item Item
+		if err := gofakeit.Struct(&item); err != nil {
+			return order
+		}
+
+		quantity := rng.Intn(5) + 1
+
+		item.Sale = rng.Intn(51)
+
+		item.TotalPrice = float64(item.Price*quantity) * (1 - float64(item.Sale)/100.0)
+
+		goodsTotal += item.TotalPrice
+		items = append(items, item)
+	}
+
+	payment.GoodsTotal = goodsTotal
+	payment.Amount = payment.DeliveryCost + goodsTotal + payment.CustomFee
+
+	order.Delivery = delivery
+	order.Payment = payment
+	order.Items = items
+
+	return order
 }

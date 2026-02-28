@@ -3,17 +3,17 @@ package config
 import "os"
 
 type Config struct {
-	DBPassword string
-	DBUser     string
-	DBName     string
+	DBpassword string
+	DBuser     string
+	DBname     string
 }
 
 // 	connStr := "postgres://postgres:qwerty@localhost:5433/WB_ordersDB"
 func LoadConfig() (*Config, error) {
 	return &Config{
-		DBPassword: getEnv("POSTGRES_PASSWORD", "qwerty"),
-		DBUser:     getEnv("POSTGRES_USER", "postgres"),
-		DBName:     getEnv("POSTGRES_DB", "WB_ordersDB"),
+		DBpassword: getEnv("POSTGRES_PASSWORD", "qwerty"),
+		DBuser:     getEnv("POSTGRES_USER", "postgres"),
+		DBname:     getEnv("POSTGRES_DB", "WB_ordersDB"),
 	}, nil
 }
 

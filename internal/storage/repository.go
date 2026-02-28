@@ -6,7 +6,7 @@ import (
 	"log"
 
 	"test-task/internal/cache"
-	"test-task/internal/models"
+	"test-task/pkg/models"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -17,7 +17,7 @@ type Repository struct {
 	cache cache.Cache
 }
 
-const cacheCapacity = 10
+const cacheCapacity = 1
 
 func (repository *Repository) InitRepository(connStr string) error {
 
@@ -50,6 +50,7 @@ func (repository *Repository) InitRepository(connStr string) error {
 
 }
 
+
 func (repository *Repository) GetOrders(quantity int) ([]models.Order, error) {
 	ctx := context.Background()
 
@@ -59,7 +60,7 @@ func (repository *Repository) GetOrders(quantity int) ([]models.Order, error) {
 	}
 	defer conn.Release()
 
-	rows, err := conn.Query(ctx, "SELECT order_uid FROM orders LIMIT $1", quantity)
+	rows, err := conn.Query(ctx, `SELECT order_uid FROM orders LIMIT $1`, quantity)
 	if err != nil {
 		return nil, fmt.Errorf("query: %w", err)
 	}

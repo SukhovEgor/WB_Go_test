@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -11,9 +12,8 @@ import (
 	"strings"
 	"time"
 
-	cache "test-task/internal/cache"
-	"test-task/internal/kafka"
-	models "test-task/internal/models"
+
+	"test-task/pkg/models"
 	"test-task/internal/storage"
 
 	"github.com/IBM/sarama"
@@ -23,37 +23,97 @@ import (
 
 type App struct {
 	repository storage.Repository
-	cache      cache.Cache
-	Producer   sarama.SyncProducer
-	Consumer   sarama.Consumer
+	consumer   sarama.ConsumerGroup
+	stopChan   chan struct{}
 }
 
 func NewApp(connStr string) (*App, error) {
 	app := &App{}
-
 	err := app.repository.InitRepository(connStr)
 	if err != nil {
 		log.Printf("Unable to connect to database: %v", err)
 		return nil, err
 	}
 
-	brokers := []string{"localhost:9092"}
+	config := sarama.NewConfig()
+	config.Consumer.Group.Rebalance.GroupStrategies = []sarama.BalanceStrategy{
+		sarama.NewBalanceStrategyRoundRobin(),
+	}
+	config.Consumer.Offsets.Initial = sarama.OffsetNewest
+	config.Consumer.Offsets.AutoCommit.Enable = false
+	config.Consumer.Return.Errors = true
 
-	producer, err := kafka.ConnectProducer(brokers)
+	consumerGroup, err := sarama.NewConsumerGroup(
+		[]string{"kafka:9092"},
+		"orders-consumer-group",
+		config,
+	)
 	if err != nil {
-		log.Printf("Unable to init Kafka producer: %v", err)
 		return nil, err
 	}
-	app.Producer = producer
 
-	consumer, err := kafka.ConnectConsumer(brokers)
-	if err != nil {
-		log.Printf("Unable to init Kafka consumer: %v", err)
-		return nil, err
-	}
-	app.Consumer = consumer
+	app.consumer = consumerGroup
+
+	go app.runConsumer()
 
 	return app, nil
+}
+
+func (a *App) runConsumer() {
+    ctx, cancel := context.WithCancel(context.Background())
+    defer cancel()
+
+    go func() {
+        <-a.stopChan
+        cancel()
+    }()
+
+    // Самый простой потребитель без группы (не использует ConsumerGroup)
+    consumer, err := sarama.NewConsumer([]string{"kafka:9092"}, nil)
+    if err != nil {
+        log.Printf("failed to create consumer: %v", err)
+        return
+    }
+    defer consumer.Close()
+
+    partitionConsumer, err := consumer.ConsumePartition("orders", 0, sarama.OffsetNewest)
+    if err != nil {
+        log.Printf("failed to consume partition: %v", err)
+        return
+    }
+    defer partitionConsumer.Close()
+
+    log.Println("simple kafka consumer started (partition 0)")
+
+    for {
+        select {
+        case msg, ok := <-partitionConsumer.Messages():
+            if !ok {
+                log.Println("messages channel closed")
+                return
+            }
+
+            var order models.Order
+            if err := json.Unmarshal(msg.Value, &order); err != nil {
+                log.Printf("unmarshal error: %v", err)
+                continue
+            }
+
+            if err := a.repository.InsertToDB(&order); err != nil {
+                log.Printf("store error: %v", err)
+                // можно добавить retry или логирование
+            }
+
+            log.Printf("processed order %s from offset %d", order.OrderUID, msg.Offset)
+
+        case <-ctx.Done():
+            log.Println("consumer stopped by context")
+            return
+
+        case err := <-partitionConsumer.Errors():
+            log.Printf("consumer error: %v", err)
+        }
+    }
 }
 
 func (a *App) HomeHandler(w http.ResponseWriter, r *http.Request) {
@@ -83,7 +143,7 @@ func (a *App) GetOrderById(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	kafka.DoRequest(a.Producer, a.Consumer, orderUid, "get_order_by_id", "get_order_by_id_response")
+	//kafka.DoRequest(a.Producer, a.Consumer, orderUid, "get_order_by_id", "get_order_by_id_response")
 
 	json_data, err := json.MarshalIndent(order, "", "\t")
 	if err != nil {
@@ -135,10 +195,10 @@ func (a *App) HandleCreateOrders(data string) (interface{}, error) {
 	return orders, nil
 }
 
-func (a *App) CreateOrders(w http.ResponseWriter, r *http.Request) {
+/* func (a *App) CreateOrders(w http.ResponseWriter, r *http.Request) {
 	orderCount := 2
-	msg := kafka.DoRequest(a.Producer, a.Consumer, orderCount,
-		"post_order", "post_order_response")
+	/* msg := kafka.DoRequest(a.Producer, a.Consumer, orderCount,
+		"post_order", "post_order_response") 
 
 	var orders []models.Order
 	if err := json.Unmarshal([]byte(msg), &orders); err != nil {
@@ -155,7 +215,7 @@ func (a *App) CreateOrders(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(w).Encode(orders); err != nil {
 		log.Printf("Error while creating response: %v", err)
 	}
-}
+} */
 
 func createRandomOrder(rng *rand.Rand) (models.Order, error) {
 	var order models.Order
@@ -204,10 +264,12 @@ func createRandomOrder(rng *rand.Rand) (models.Order, error) {
 
 func (a *App) Close() {
 	a.repository.Close()
-	if a.Producer != nil {
-		a.Producer.Close()
-	}
-	if a.Consumer != nil {
-		a.Consumer.Close()
+	log.Println("Stopping consumer...")
+	close(a.stopChan)
+
+	time.Sleep(3 * time.Second)
+
+	if err := a.consumer.Close(); err != nil {
+		log.Printf("error closing consumer: %v", err)
 	}
 }

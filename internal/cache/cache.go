@@ -4,7 +4,7 @@ import (
 	"container/list"
 	"log"
 
-	models "test-task/internal/models"
+	"test-task/pkg/models"
 )
 
 type Cache struct {
