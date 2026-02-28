@@ -8,8 +8,6 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
-	"strconv"
-	"strings"
 	"time"
 
 
@@ -117,7 +115,7 @@ func (a *App) runConsumer() {
 }
 
 func (a *App) HomeHandler(w http.ResponseWriter, r *http.Request) {
-	html, err := os.ReadFile("../web/index.html")
+	html, err := os.ReadFile("frontend/index.html")
 	if err != nil {
 		log.Printf("Error reading index.html: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -143,8 +141,6 @@ func (a *App) GetOrderById(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//kafka.DoRequest(a.Producer, a.Consumer, orderUid, "get_order_by_id", "get_order_by_id_response")
-
 	json_data, err := json.MarshalIndent(order, "", "\t")
 	if err != nil {
 		log.Printf("Failed to create json: %v", err)
@@ -152,7 +148,7 @@ func (a *App) GetOrderById(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "%s\n", json_data)
 }
 
-func (a *App) HandleGetOrderByID(uid string) (interface{}, error) {
+/* func (a *App) HandleGetOrderByID(uid string) (interface{}, error) {
 	uid = strings.Trim(uid, `"`)
 	log.Printf("HandleSearching : %v", uid)
 	order, exist, err := a.repository.FindOrderById(uid)
@@ -193,12 +189,10 @@ func (a *App) HandleCreateOrders(data string) (interface{}, error) {
 	}
 
 	return orders, nil
-}
+} */
 
 /* func (a *App) CreateOrders(w http.ResponseWriter, r *http.Request) {
 	orderCount := 2
-	/* msg := kafka.DoRequest(a.Producer, a.Consumer, orderCount,
-		"post_order", "post_order_response") 
 
 	var orders []models.Order
 	if err := json.Unmarshal([]byte(msg), &orders); err != nil {
@@ -215,7 +209,36 @@ func (a *App) HandleCreateOrders(data string) (interface{}, error) {
 	if err := json.NewEncoder(w).Encode(orders); err != nil {
 		log.Printf("Error while creating response: %v", err)
 	}
-} */
+} */ 
+
+func (a *App) CreateOrders(w http.ResponseWriter, r *http.Request) {
+
+	amount := 2
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	var orders []models.Order
+	for i := 0; i < amount; i++ {
+		order, err := createRandomOrder(rng)
+		if err != nil {
+			log.Printf("Failed to generate order #%d: %v", i+1, err)
+			continue
+		}
+
+		if err := a.repository.InsertToDB(&order); err != nil {
+			log.Printf("Failed to insert order #%d: %v", i+1, err)
+			continue
+		}
+
+		orders = append(orders, order)
+	}
+
+	json_data, err := json.MarshalIndent(orders, "", "  ")
+	if err != nil {
+		log.Printf("Error making json: %v", err)
+	}
+
+	fmt.Fprintf(w, "%s\n", json_data)
+}
 
 func createRandomOrder(rng *rand.Rand) (models.Order, error) {
 	var order models.Order

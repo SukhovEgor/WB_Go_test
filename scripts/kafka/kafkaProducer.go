@@ -1,14 +1,14 @@
 package main
 
 import (
-	//"encoding/json"
+
 	"fmt"
 	"log"
 	"net/http"
 	"time"
-	//"math/rand"
 
-	//models "test-task/pkg/models"
+
+	//"test-task/pkg/models"
 
 	"github.com/IBM/sarama"
 	"github.com/gorilla/mux"
@@ -119,16 +119,15 @@ func main() {
 	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, "producer is fine")
 	})
-
 /* 	r.HandleFunc("/produce", func(w http.ResponseWriter, r *http.Request) {
 		order, err := producer.ProduceRandomOrder()
 		if err != nil {
-			http.Error(w, fmt.Sprintf("Failed to produce: %v", err), http.StatusInternalServerError)
-			return
+			fmt.Fprintf(w, "Failed to produce: %v", err)
+		} else {
+			fmt.Fprintf(w, "Successfully produced order with id: %v", order.OrderUID)
 		}
-		fmt.Fprintf(w, "Successfully produced order with id: %v", order.OrderUID)
 	}) */
-
+	
 	log.Println("Starting HTTP server on :8082")
 	if err := http.ListenAndServe(":8082", r); err != nil {
 		log.Fatalf("HTTP server failed: %v", err)
