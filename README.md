@@ -33,11 +33,14 @@
 
 ---
 
-## Запуск проекта
+# Запуск
+## Docker
+Предпочтителен запуск через Docker:
+```bash
+Docker compose up --build
+```
 
-Должно быть установлено:
-- **Kafka**
-- **PostgreSQL** 
+## Локальный зап
 
 ### Таблицы PostgreSQL
 
@@ -86,7 +89,7 @@ GET /order/{order_uid}
 Пример:
 
 ```bash
-http://localhost:3000/order/test123
+http://localhost:8080/order/test123
 ```
 
 ### Сгенерировать тестовые заказы
